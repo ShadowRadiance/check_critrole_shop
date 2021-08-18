@@ -18,10 +18,7 @@ class Application
   
   def run
     parse_command_line
-    
-    puts (product.available? ? "Product in Stock: #{@url}" : "Product out of Stock")
-    
-    # puts check_availability
+    puts availability
   rescue JSON::ParserError
     puts "Could not parse JSON object at #ProductJson-1. Is this a CritRole url?"
   rescue Errno::ENOENT
@@ -37,6 +34,14 @@ class Application
   def parse_command_line
     if ARGV.length > 0
       @url = ARGV[0]
+    end
+  end
+  
+  def availability
+    if product.available?
+      "Product in Stock: #{@url}" 
+    else
+      "Product out of Stock"
     end
   end
   
