@@ -4,7 +4,12 @@ require 'json'
 require 'optparse'
 
 class Application
-  Options = Struct.new(:url)
+  Product = Struct.new(:json) do
+    def available?
+      json['available']==true
+    end
+  end
+  
   DEFAULT_URL = "https://canada.critrole.com/collections/all-products/products/baileys-dice-bag-of-hoarding?variant=36226702999718"
   
   def initialize
@@ -13,21 +18,18 @@ class Application
   
   def run
     parse_command_line
-    check_url
-  end
-  
-  def check_url
-    doc = Nokogiri::HTML5(URI.open(@url))
-    script_tag = doc.at_css("#ProductJson-1")
-    json = script_tag.inner_html
-    object = JSON.parse(json)
-
-    if object['available']
-      puts "Product in Stock: #{@url}"
-    else
-      puts "Product out of Stock"
-    end
     
+    puts (product.available? ? "Product in Stock: #{@url}" : "Product out of Stock")
+    
+    # puts check_availability
+  rescue JSON::ParserError
+    puts "Could not parse JSON object at #ProductJson-1. Is this a CritRole url?"
+  rescue Errno::ENOENT
+    puts "Unrecognized URL"
+  rescue SocketError
+    puts "Network not available"
+  rescue => e
+    puts e
   end
   
   private
@@ -37,6 +39,27 @@ class Application
       @url = ARGV[0]
     end
   end
+  
+  def product
+    Product.new hash_from_json
+  end
+  
+  def hash_from_json
+    JSON.parse(element.inner_html).tap do |object|
+      raise JSON::ParserError unless object.is_a?(Hash)
+      raise JSON::ParserError unless object.key?('available')
+    end
+  end
+  
+  def element
+    document.at_css("#ProductJson-1").tap do |e|
+      raise "Could not parse #{@url} - is this a CritRole url?" if e.nil?
+    end
+  end
+  
+  def document
+    Nokogiri::HTML5(URI.open(@url))
+  end  
 end
 
 Application.new.run
